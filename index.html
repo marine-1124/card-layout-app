@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>カード並べツール</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      margin: 20px;
+    }
+    #cardGrid {
+      display: grid;
+      grid-template-columns: repeat(3, 180px);
+      grid-template-rows: repeat(3, 250px);
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .card {
+      width: 176px;
+      height: 246px;
+      object-fit: cover;
+      transform-origin: center center;
+    }
+  </style>
+</head>
+<body>
+  <h1>カード画像を並べてPDF出力</h1>
+
+  <input type="file" id="fileInput" accept="image/*" multiple>
+  <button id="rotateBtn">すべて90度回転</button>
+  <button id="downloadBtn">PDFで保存</button>
+
+  <div id="cardGrid"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const cardGrid = document.getElementById('cardGrid');
+    const rotateBtn = document.getElementById('rotateBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    let rotation = 0;
+
+    fileInput.addEventListener('change', () => {
+      cardGrid.innerHTML = '';
+      const files = [...fileInput.files].slice(0, 9);
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          img.className = 'card';
+          cardGrid.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    rotateBtn.addEventListener('click', () => {
+      rotation = (rotation + 90) % 360;
+      document.querySelectorAll('.card').forEach(img => {
+        img.style.transform = `rotate(${rotation}deg)`;
+      });
+    });
+
+    downloadBtn.addEventListener('click', async () => {
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [595, 842] });
+
+      const imgs = document.querySelectorAll('.card');
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 595;
+      canvas.height = 842;
+
+      const positions = [
+        [40, 40], [215, 40], [390, 40],
+        [40, 296], [215, 296], [390, 296],
+        [40, 552], [215, 552], [390, 552],
+      ];
+
+      for (let i = 0; i < imgs.length; i++) {
+        const img = imgs[i];
+        const imgEl = new Image();
+        imgEl.src = img.src;
+        await imgEl.decode();
+        ctx.save();
+        ctx.translate(positions[i][0] + 88, positions[i][1] + 123);
+        ctx.rotate(rotation * Math.PI / 180);
+        ctx.drawImage(imgEl, -88, -123, 176, 246);
+        ctx.restore();
+      }
+
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      pdf.addImage(imgData, 'JPEG', 0, 0);
+      pdf.save('cards.pdf');
+    });
+  </script>
+</body>
+</html>
